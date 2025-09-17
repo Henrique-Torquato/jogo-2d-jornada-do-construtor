@@ -4,15 +4,7 @@
 
 Um jogo de plataforma 2D, construído do zero com HTML, CSS e JavaScript puro, demonstrando a criação de uma experiência interativa e gamificada sem o uso de frameworks ou bibliotecas externas.
 
-### ➤ [Clique aqui para jogar!](https://SEU-USUARIO.github.io/jornada-do-marceneiro/)
-
 ---
-
-## 📽️ Demonstração
-
-*(MENTOR: Grave um GIF curto do seu gameplay usando uma ferramenta como Giphy Capture ou ScreenToGif e coloque aqui. Um visual vale mais que mil palavras e captura a atenção imediatamente. É um diferencial enorme.)*
-
-![Gameplay GIF](link-para-seu-gif-aqui.gif)
 
 ## 🎯 Sobre o Projeto
 
@@ -38,16 +30,6 @@ Um jogo de plataforma 2D, construído do zero com HTML, CSS e JavaScript puro, d
 * **Movimentação:** Use as teclas `A` e `D` ou as `Setas Esquerda/Direita`.
 * **Pulo:** Use a tecla `W`, `Seta para Cima` ou a `Barra de Espaço`.
 * **Objetivo:** Colete todos os itens necessários em cada nível para avançar.
-
-## 📈 Melhorias Futuras (Visão de Produto)
-
-*(MENTOR: Esta seção é ouro puro. Mostra que você não apenas concluiu um projeto, mas que pensa no futuro dele como um produto. Isso demonstra visão estratégica.)*
-
-* [ ] Implementar placar de líderes (Leaderboard) com `localStorage`.
-* [ ] Adicionar novos tipos de inimigos e power-ups.
-* [ ] Refatorar o código para um padrão de componentes ou entidades.
-* [ ] Otimizar a renderização no canvas para jogos com mais elementos.
-* [ ] Adicionar suporte a controles de toque para dispositivos móveis.
 
 ## 👤 Contato
 
