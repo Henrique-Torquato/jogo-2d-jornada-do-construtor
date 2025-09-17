@@ -53,5 +53,5 @@ Um jogo de plataforma 2D, construído do zero com HTML, CSS e JavaScript puro, d
 
 **[Seu Nome]**
 
-* **LinkedIn:** [https://www.linkedin.com/in/seu-perfil/](https://www.linkedin.com/in/hhenrique-torquato/)
-* **GitHub:** [https://github.com/SEU-USUARIO](https://github.com/Henrique-Torquato)
+* **LinkedIn:** [https://www.linkedin.com/in/hhenrique-torquato/](https://www.linkedin.com/in/hhenrique-torquato/)
+* **GitHub:** [https://github.com/Henrique-Torquato](https://github.com/Henrique-Torquato)
