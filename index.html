@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Jornada do Marceneiro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- Configurações Globais e Reset --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #2c3e50; /* Cor de fundo mais escura */
+            color: white;
+            overflow: hidden; /* Evita barras de rolagem */
+        }
+
+        /* --- Contêiner Principal do Jogo --- */
+        #gameContainer {
+            position: relative;
+            width: 1024px;
+            height: 576px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            border: 5px solid #d35400;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: linear-gradient(to bottom, #74b9ff, #d1e9ff); /* Gradiente de céu */
+            image-rendering: pixelated; /* Mantém o estilo pixel art */
+        }
+        
+        /* --- Telas de UI (Sobreposição) --- */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.75);
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+
+        .overlay h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 4px 4px 0px #e67e22;
+        }
+        
+        .overlay h1.brand-title {
+             font-size: 1.8rem;
+             margin-bottom: 20px;
+             text-shadow: 3px 3px 0px #a34100;
+        }
+
+        .overlay p {
+            font-size: 1rem;
+            margin-bottom: 30px;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none;
+        }
+        
+        /* --- Botões --- */
+        .button {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2rem;
+            padding: 15px 30px;
+            background-color: #f39c12;
+            color: white;
+            border: 4px solid #d35400;
+            cursor: pointer;
+            text-shadow: 2px 2px 0px #a34100;
+            box-shadow: 0 6px #a34100;
+            transition: all 0.1s ease-in-out;
+        }
+
+        .button:hover {
+            background-color: #e67e22;
+            transform: translateY(2px);
+            box-shadow: 0 4px #a34100;
+        }
+
+        .button:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px #a34100;
+        }
+        
+        /* --- HUD (Interface do Jogo) --- */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 2px #000;
+            pointer-events: none; /* Evita que o HUD intercepte cliques */
+        }
+
+        #hud > div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(0,0,0,0.4);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1024" height="576"></canvas>
+        
+        <!-- Tela Inicial -->
+        <div id="startScreen" class="overlay">
+            <h1 class="brand-title">EMPRESA</h1>
+            <h1>A Jornada do Marceneiro</h1>
+            <p>Colete as ferramentas e construa o móvel dos sonhos!</p>
+            <button id="startButton" class="button">Iniciar Jogo</button>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div id="livesContainer">
+                <!-- Vidas serão inseridas via JS -->
+            </div>
+            <div id="levelDisplay">Nível: 1</div>
+            <div id="objectiveContainer">
+                <span id="objectiveText">Parafusos:</span>
+                <span id="objectiveCount">0 / 10</span>
+            </div>
+        </div>
+        
+        <!-- Tela de Transição de Nível -->
+        <div id="levelTransitionScreen" class="overlay hidden">
+            <h1 id="transitionLevelText">Nível 2</h1>
+        </div>
+        
+        <!-- Tela de Game Over -->
+        <div id="gameOverScreen" class="overlay hidden">
+            <h1>Game Over</h1>
+            <p>Parece que o projeto precisa de mais atenção.</p>
+            <button id="restartButton" class="button">Tentar Novamente</button>
+        </div>
+
+        <!-- Tela de Vitória -->
+        <div id="victoryScreen" class="overlay hidden">
+            <h1 class="brand-title">EMPRESA</h1>
+            <h1>Projeto Concluído!</h1>
+            <p>Você montou o móvel com sucesso!</p>
+        </div>
+    </div>
+
+    <script>
+    // --- SETUP INICIAL ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Referências aos elementos da UI
+    const ui = {
+        startScreen: document.getElementById('startScreen'),
+        gameOverScreen: document.getElementById('gameOverScreen'),
+        victoryScreen: document.getElementById('victoryScreen'),
+        levelTransitionScreen: document.getElementById('levelTransitionScreen'),
+        transitionLevelText: document.getElementById('transitionLevelText'),
+        hud: document.getElementById('hud'),
+        livesContainer: document.getElementById('livesContainer'),
+        levelDisplay: document.getElementById('levelDisplay'),
+        objectiveContainer: document.getElementById('objectiveContainer'),
+        objectiveText: document.getElementById('objectiveText'),
+        objectiveCount: document.getElementById('objectiveCount'),
+        startButton: document.getElementById('startButton'),
+        restartButton: document.getElementById('restartButton'),
+    };
+
+    // --- CARREGAMENTO DE ATIVOS (ASSETS) ---
+    // COMENTÁRIO DO MENTOR: Dependências de imagem eliminadas. O jogo agora é 100% autônomo.
+    const assets = {
+        sounds: {
+            music: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/chiptune-loop.mp3'),
+            jump: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/jump.wav'),
+            collect: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/collect.wav'),
+            hurt: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/hurt.wav'),
+            win: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/win.wav'),
+            click: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/click.wav'),
+            levelUp: new Audio('https://cdn.jsdelivr.net/gh/kewbish/game-assets/sounds/level-up.wav'),
+        }
+    };
+    
+    // Configurações de áudio
+    assets.sounds.music.loop = true;
+    assets.sounds.music.volume = 0.3;
+
+    // --- CONSTANTES E ESTADO DO JOGO ---
+    const GRAVITY = 0.6;
+    let gameFrame = 0;
+    let currentLevelIndex = 0;
+    let player, platforms, collectibles, obstacles;
+    let keys = { right: false, left: false };
+    let isGameRunning = false;
+    let animationFrameId;
+
+    // --- DEFINIÇÃO DOS NÍVEIS ---
+    // COMENTÁRIO DO MENTOR: Posições das plataformas ajustadas para garantir que todos os níveis sejam jogáveis.
+    const levelDesigns = [
+        // Nível 1: A Oficina
+        {
+            objective: { type: 'screw', name: 'Parafusos', amount: 10 },
+            tileColor: '#8B4513', // Marrom madeira
+            bgColor: 'linear-gradient(to bottom, #74b9ff, #d1e9ff)',
+            platforms: [
+                { x: 0, y: 556, w: 16, h: 1 }, // Chão
+                { x: 200, y: 450, w: 3, h: 1 },
+                { x: 0, y: 350, w: 2, h: 1 },
+                { x: 450, y: 350, w: 4, h: 1 },
+                { x: 750, y: 250, w: 3, h: 1 },
+                { x: 900, y: 150, w: 2, h: 1 },
+            ],
+            collectibles: [
+                { type: 'screw', x: 232, y: 418 }, { type: 'screw', x: 32, y: 318 }, 
+                { type: 'screw', x: 482, y: 318 }, { type: 'screw', x: 782, y: 218 },
+                { type: 'screw', x: 932, y: 118 }, { type: 'screw', x: 100, y: 524 },
+                { type: 'screw', x: 300, y: 524 }, { type: 'screw', x: 600, y: 524 },
+                { type: 'screw', x: 800, y: 524 }, { type: 'screw', x: 950, y: 524 },
+            ],
+            obstacles: [
+                { type: 'splinter', x: 400, y: 524, speed: 1, range: 100 },
+            ]
+        },
+        // Nível 2: A Floresta de Pinus
+        {
+            objective: { type: 'plank', name: 'Tábuas', amount: 5 },
+            tileColor: '#6B8E23', // Verde musgo
+            bgColor: 'linear-gradient(to bottom, #2d3436, #636e72)',
+            platforms: [
+                { x: 0, y: 556, w: 3, h: 1 },
+                { x: 800, y: 556, w: 4, h: 1 },
+                { x: 150, y: 420, w: 2, h: 1 },
+                { x: 400, y: 450, w: 2, h: 1 },
+                { x: 650, y: 350, w: 3, h: 1 },
+                { x: 300, y: 250, w: 2, h: 1 },
+            ],
+            collectibles: [
+                { type: 'plank', x: 182, y: 388 }, { type: 'plank', x: 432, y: 418 },
+                { type: 'plank', x: 682, y: 318 }, { type: 'plank', x: 332, y: 218 },
+                { type: 'plank', x: 850, y: 524 },
+            ],
+            obstacles: [
+                { type: 'splinter', x: 50, y: 524, speed: 1.5, range: 100 },
+                { type: 'splinter', x: 850, y: 524, speed: -1.5, range: 150 },
+                { type: 'paintCan', x: 500, y: -50, speedY: 2 },
+                { type: 'paintCan', x: 200, y: -250, speedY: 2.5 },
+            ]
+        },
+        // Nível 3: O Galpão de Montagem
+        {
+            objective: { type: 'saw', name: 'Serrote', amount: 1 },
+            tileColor: '#7f8c8d', // Cinza metal
+            bgColor: 'linear-gradient(to bottom, #2c3e50, #34495e)',
+            platforms: [
+                { x: 0, y: 556, w: 2, h: 1 }, // Chão inicial
+                { x: 896, y: 556, w: 2, h: 1 }, // Chão final
+                { x: 200, y: 450, w: 2, h: 1 },
+                { x: 400, y: 350, w: 3, h: 1, moving: true, speed: 1.2, range: 150 },
+                { x: 650, y: 220, w: 2, h: 1 },
+                { x: 800, y: 100, w: 1, h: 1 }, // Plataforma do serrote
+            ],
+            collectibles: [
+                { type: 'saw', x: 816, y: 60 },
+            ],
+            obstacles: [
+                { type: 'splinter', x: 0, y: 524, speed: 2, range: 80 },
+                { type: 'splinter', x: 896, y: 524, speed: -2, range: 80 },
+                { type: 'paintCan', x: 150, y: -100, speedY: 3 },
+                { type: 'paintCan', x: 400, y: -300, speedY: 3 },
+                { type: 'paintCan', x: 700, y: -200, speedY: 3.5 },
+            ]
+        }
+    ];
+
+    // --- CLASSES DO JOGO ---
+
+    class Player {
+        constructor() {
+            this.width = 40;
+            this.height = 60;
+            this.reset();
+        }
+
+        reset() {
+            this.x = 50;
+            this.y = canvas.height - this.height - 100;
+            this.speed = 5;
+            this.velX = 0;
+            this.velY = 0;
+            this.onGround = false;
+            this.lives = 3;
+            this.collectedCount = 0;
+            this.isInvincible = false;
+            this.invincibilityTimer = 0;
+        }
+
+        draw() {
+            if (this.isInvincible && Math.floor(this.invincibilityTimer / 5) % 2 === 0) {
+                return; // Efeito de piscar
+            }
+            // Corpo
+            ctx.fillStyle = '#e67e22'; // Laranja
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            // Capacete
+            ctx.fillStyle = '#f39c12'; // Laranja mais claro
+            ctx.fillRect(this.x, this.y, this.width, 15);
+        }
+
+        update() {
+            this.velX = 0;
+            if (keys.right) this.velX = this.speed;
+            if (keys.left) this.velX = -this.speed;
+            this.x += this.velX;
+
+            this.velY += GRAVITY;
+            this.y += this.velY;
+            this.onGround = false;
+
+            if (this.x < 0) this.x = 0;
+            if (this.x + this.width > canvas.width) this.x = canvas.width - this.width;
+            
+            if (this.y > canvas.height) {
+                this.lives = 0;
+                gameOver();
+            }
+
+            if (this.isInvincible) {
+                this.invincibilityTimer--;
+                if (this.invincibilityTimer <= 0) {
+                    this.isInvincible = false;
+                }
+            }
+        }
+        
+        jump() {
+            if (this.onGround) {
+                this.velY = -14;
+                playSound(assets.sounds.jump);
+            }
+        }
+
+        takeDamage() {
+            if (!this.isInvincible) {
+                this.lives--;
+                this.isInvincible = true;
+                this.invincibilityTimer = 120;
+                updateHUD();
+                playSound(assets.sounds.hurt);
+                if (this.lives <= 0) {
+                    gameOver();
+                }
+            }
+        }
+    }
+    
+    class Platform {
+        constructor(x, y, w, h, color, moving, speed, range) {
+            this.tileSize = 64;
+            this.x = x;
+            this.y = y;
+            this.width = w * this.tileSize;
+            this.height = h * this.tileSize;
+            this.color = color;
+            
+            this.isMoving = moving || false;
+            if (this.isMoving) {
+                this.originalX = x;
+                this.speed = speed || 1;
+                this.range = range || 100;
+            }
+        }
+
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+            // Adiciona um detalhe para parecerem blocos
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.lineWidth = 2;
+            for (let i = 1; i < this.width / this.tileSize; i++) {
+                ctx.beginPath();
+                ctx.moveTo(this.x + i * this.tileSize, this.y);
+                ctx.lineTo(this.x + i * this.tileSize, this.y + this.height);
+                ctx.stroke();
+            }
+        }
+        
+        update() {
+            if (this.isMoving) {
+                this.x += this.speed;
+                if (this.x > this.originalX + this.range || this.x < this.originalX) {
+                    this.speed *= -1;
+                }
+            }
+        }
+    }
+
+    class Collectible {
+        constructor(x, y, type) {
+            this.x = x;
+            this.y = y;
+            this.type = type;
+            this.width = 32;
+            this.height = 32;
+        }
+        draw() {
+            ctx.fillStyle = '#f1c40f'; // Dourado para destaque
+            if (this.type === 'screw') {
+                 ctx.fillStyle = '#bdc3c7'; // Cinza
+                 ctx.fillRect(this.x + 12, this.y, 8, 32);
+                 ctx.fillRect(this.x, this.y, 32, 8);
+            } else if (this.type === 'plank') {
+                ctx.fillStyle = '#d35400'; // Laranja escuro
+                ctx.fillRect(this.x, this.y + 8, 32, 16);
+            } else if (this.type === 'saw') {
+                ctx.fillStyle = '#95a5a6'; // Cinza claro
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 16);
+                ctx.lineTo(this.x + 32, this.y + 16);
+                ctx.lineTo(this.x + 32, this.y + 32);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#e67e22'; // Laranja
+                ctx.fillRect(this.x, this.y + 16, 10, 8);
+            }
+        }
+    }
+    
+    class Obstacle {
+        constructor(x, y, type, speed, range, speedY) {
+            this.x = x;
+            this.y = y;
+            this.type = type;
+            this.width = 32;
+            this.height = 32;
+
+            if (type === 'splinter') {
+                this.originalX = x;
+                this.speed = speed || 1;
+                this.range = range || 100;
+            }
+            if (type === 'paintCan') {
+                this.speedY = speedY || 2;
+                this.originalY = y;
+            }
+        }
+
+        draw() {
+            if (this.type === 'splinter') {
+                ctx.fillStyle = '#c0392b'; // Vermelho perigo
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.fill();
+            } else if (this.type === 'paintCan') {
+                ctx.fillStyle = '#3498db'; // Azul
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = '#ecf0f1'; // Branco
+                ctx.fillRect(this.x, this.y, this.width, 8);
+            }
+        }
+
+        update() {
+            if (this.type === 'splinter') {
+                this.x += this.speed;
+                if (this.x > this.originalX + this.range || this.x < this.originalX) {
+                    this.speed *= -1;
+                }
+            }
+            if (this.type === 'paintCan') {
+                this.y += this.speedY;
+                if (this.y > canvas.height) {
+                    this.y = this.originalY;
+                }
+            }
+        }
+    }
+
+    // --- FUNÇÕES DO JOGO ---
+
+    function initGame() {
+        isGameRunning = true;
+        player = new Player();
+        loadLevel(currentLevelIndex);
+        updateHUD();
+        ui.hud.classList.remove('hidden');
+        ui.gameOverScreen.classList.add('hidden');
+        ui.victoryScreen.classList.add('hidden');
+        assets.sounds.music.currentTime = 0;
+        assets.sounds.music.play().catch(e => console.log("Interação do usuário necessária para tocar áudio."));
+        
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+        }
+        animate();
+    }
+    
+    function loadLevel(levelIndex) {
+        const levelData = levelDesigns[levelIndex];
+        canvas.style.background = levelData.bgColor;
+
+        platforms = levelData.platforms.map(p => new Platform(p.x, p.y, p.w, p.h, levelData.tileColor, p.moving, p.speed, p.range));
+        collectibles = levelData.collectibles.map(c => new Collectible(c.x, c.y, c.type));
+        obstacles = levelData.obstacles.map(o => new Obstacle(o.x, o.y, o.type, o.speed, o.range, o.speedY));
+        
+        player.collectedCount = 0;
+        updateHUD();
+    }
+
+    function checkCollisions() {
+        let onAnyPlatform = false;
+        platforms.forEach(platform => {
+            // COMENTÁRIO DO MENTOR: Lógica de colisão aprimorada para evitar que o jogador
+            // atravesse plataformas finas em alta velocidade (tunneling).
+            // A verificação agora considera a posição anterior do jogador para garantir a detecção.
+            const previousPlayerBottom = player.y + player.height - player.velY;
+
+            // Verifica colisão vertical (pousando na plataforma)
+            if (player.velY >= 0 && // Apenas se estiver caindo
+                player.x + player.width > platform.x && // Sobreposição horizontal
+                player.x < platform.x + platform.width &&
+                previousPlayerBottom <= platform.y && // Estava acima no frame anterior
+                player.y + player.height >= platform.y // Está abaixo (ou tocando) agora
+            ) {
+                player.y = platform.y - player.height; // Corrige a posição para ficar em cima
+                player.velY = 0;
+                onAnyPlatform = true;
+                if (platform.isMoving) {
+                    player.x += platform.speed;
+                }
+            }
+        });
+        player.onGround = onAnyPlatform;
+
+        collectibles.forEach((item, index) => {
+            if (
+                player.x < item.x + item.width &&
+                player.x + player.width > item.x &&
+                player.y < item.y + item.height &&
+                player.y + player.height > item.y
+            ) {
+                player.collectedCount++;
+                collectibles.splice(index, 1);
+                playSound(assets.sounds.collect);
+                checkLevelCompletion();
+                updateHUD();
+            }
+        });
+        
+        obstacles.forEach(obstacle => {
+             if (
+                player.x < obstacle.x + obstacle.width &&
+                player.x + player.width > obstacle.x &&
+                player.y < obstacle.y + obstacle.height &&
+                player.y + player.height > obstacle.y
+            ) {
+                player.takeDamage();
+            }
+        });
+    }
+    
+    function checkLevelCompletion() {
+        const currentObjective = levelDesigns[currentLevelIndex].objective;
+        if (player.collectedCount >= currentObjective.amount) {
+            currentLevelIndex++;
+            if (currentLevelIndex >= levelDesigns.length) {
+                winGame();
+            } else {
+                transitionToNextLevel();
+            }
+        }
+    }
+
+    function transitionToNextLevel() {
+        isGameRunning = false;
+        playSound(assets.sounds.levelUp);
+        ui.transitionLevelText.textContent = `Nível ${currentLevelIndex + 1}`;
+        ui.levelTransitionScreen.classList.remove('hidden');
+        setTimeout(() => {
+            ui.levelTransitionScreen.classList.add('hidden');
+            player.x = 50;
+            player.y = 400;
+            player.velX = 0;
+            player.velY = 0;
+            isGameRunning = true;
+            loadLevel(currentLevelIndex);
+            animate();
+        }, 2000);
+    }
+
+    function updateHUD() {
+        if (!player) return;
+        ui.livesContainer.innerHTML = '❤️'.repeat(player.lives);
+        ui.levelDisplay.textContent = `Nível: ${currentLevelIndex + 1}`;
+        
+        const objective = levelDesigns[currentLevelIndex].objective;
+        ui.objectiveText.textContent = `${objective.name}:`;
+        ui.objectiveCount.textContent = `${player.collectedCount} / ${objective.amount}`;
+    }
+    
+    function gameOver() {
+        isGameRunning = false;
+        assets.sounds.music.pause();
+        ui.hud.classList.add('hidden');
+        ui.gameOverScreen.classList.remove('hidden');
+    }
+
+    function winGame() {
+        isGameRunning = false;
+        assets.sounds.music.pause();
+        playSound(assets.sounds.win);
+        ui.hud.classList.add('hidden');
+        ui.victoryScreen.classList.remove('hidden');
+    }
+
+    function playSound(sound) {
+        sound.currentTime = 0;
+        sound.play();
+    }
+
+    // --- LOOP PRINCIPAL DO JOGO ---
+    function animate() {
+        if (!isGameRunning) {
+            cancelAnimationFrame(animationFrameId);
+            return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        platforms.forEach(p => p.draw());
+        collectibles.forEach(c => c.draw());
+        obstacles.forEach(o => o.draw());
+        
+        player.draw();
+        
+        platforms.forEach(p => p.update());
+        obstacles.forEach(o => o.update());
+        player.update();
+        
+        checkCollisions();
+        
+        gameFrame++;
+        animationFrameId = requestAnimationFrame(animate);
+    }
+
+    // --- CONTROLES E EVENTOS ---
+
+    window.addEventListener('keydown', (e) => {
+        switch (e.key) {
+            case 'a':
+            case 'ArrowLeft':
+                keys.left = true;
+                break;
+            case 'd':
+            case 'ArrowRight':
+                keys.right = true;
+                break;
+            case 'w':
+            case 'ArrowUp':
+            case ' ':
+                e.preventDefault();
+                player?.jump();
+                break;
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        switch (e.key) {
+            case 'a':
+            case 'ArrowLeft':
+                keys.left = false;
+                break;
+            case 'd':
+            case 'ArrowRight':
+                keys.right = false;
+                break;
+        }
+    });
+    
+    ui.startButton.addEventListener('click', () => {
+        playSound(assets.sounds.click);
+        ui.startScreen.classList.add('hidden');
+        initGame();
+    });
+    
+    ui.restartButton.addEventListener('click', () => {
+        playSound(assets.sounds.click);
+        currentLevelIndex = 0;
+        initGame();
+    });
+
+    window.addEventListener('load', () => {
+        console.log("Jogo pronto. Ativos gerados via código.");
+    });
+
+    </script>
+</body>
+</html>
+
